@@ -28,6 +28,9 @@ type Participant struct {
 type Dealer struct {
 	Participant
 	privateKey *ecdsa.PrivateKey
+
+	p0     *big.Int // coefficients 0, used for revealing the secret on its own.
+	secret *big.Int // used for revealing on its own.
 }
 
 func NewDealer(privateKey *ecdsa.PrivateKey) *Dealer {
@@ -54,6 +57,9 @@ func (d *Dealer) DistributeSecret(secret *big.Int, pks []*ecdsa.PublicKey, thres
 			Position: i + 1,
 		}
 	}
+
+	d.p0 = poly.coefficients[0]
+	d.secret = secret
 
 	return d.distribute(secret, shares, threshold, poly)
 }
@@ -253,4 +259,19 @@ func lagrangeCoefficient(i int, bigjs map[int]*big.Int) *big.Int {
 	numerator.Mul(numerator, inverseDenom)
 	numerator.Mod(numerator, secp256k1N)
 	return numerator
+}
+
+func VerifyRevealedSecret(secret, p0 *big.Int, C0 *Point, U *big.Int) bool {
+	if C0 == nil {
+		return false
+	}
+	c0Gx, c0Gy := theCurve.ScalarMult(Hx, Hy, p0.Bytes())
+	if C0.X.Cmp(c0Gx) != 0 ||
+		C0.Y.Cmp(c0Gy) != 0 {
+		return false
+	}
+	sGx, sGy := theCurve.ScalarBaseMult(p0.Bytes())
+	hash256 := Hash(sha3.New256(), sGx, sGy)
+	u := new(big.Int).Xor(secret, new(big.Int).SetBytes(hash256))
+	return u.Cmp(U) == 0
 }

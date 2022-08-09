@@ -69,6 +69,10 @@ func TestAllPVSS(t *testing.T) {
 	s = ReconstructSecret([]*DecryptedShare{ds4, ds2, ds3, ds1}, sharebox.U)
 	require.NotNil(t, s)
 	require.Equal(t, 0, s.Cmp(secret))
+
+	// 6. If the dealer reveal the secret on its own, he also need to reveal the coefficient 0,
+	// then the participants can verify it.
+	require.True(t, VerifyRevealedSecret(dealer.secret, dealer.p0, sharebox.Commitments[0], sharebox.U))
 }
 
 func genDealers(n int) ([]*Dealer, []*ecdsa.PublicKey) {
